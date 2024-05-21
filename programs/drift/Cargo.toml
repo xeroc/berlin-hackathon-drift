@@ -11,10 +11,10 @@ path = "src/lib.rs"
 
 [features]
 no-entrypoint = []
-cpi = ["no-entrypoint"]
+cpi = []
 mainnet-beta=[]
 anchor-test= []
-default=["mainnet-beta"]
+default=["mainnet-beta","cpi"]
 drift-rs=[]
 
 [dependencies]

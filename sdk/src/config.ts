@@ -31,7 +31,7 @@ type DriftConfig = {
 
 export type DriftEnv = 'devnet' | 'mainnet-beta';
 
-export const DRIFT_PROGRAM_ID = 'dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH';
+export const DRIFT_PROGRAM_ID = 'JuJuLs2fwCPDvsziDAghqgCXMSA64PrbTHfWbHV5ZFe';
 
 export const configs: { [key in DriftEnv]: DriftConfig } = {
 	devnet: {
