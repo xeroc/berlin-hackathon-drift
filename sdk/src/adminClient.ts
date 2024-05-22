@@ -28,6 +28,8 @@ import {
 	getPhoenixFulfillmentConfigPublicKey,
 	getProtocolIfSharesTransferConfigPublicKey,
 	getPrelaunchOraclePublicKey,
+	getUserAccountPublicKey,
+	getUserStatsAccountPublicKey,
 } from './addresses/pda';
 import { squareRootBN } from './math/utils';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
@@ -3483,5 +3485,53 @@ export class AdminClient extends DriftClient {
 				),
 			},
 		});
+	}
+
+	/////////////////////////////////////////////////////////
+	// LP Pool
+	/////////////////////////////////////////////////////////
+	public async initializeLpPool(
+		subAccountId: number = 0,
+		name?: string,
+	): Promise<TransactionSignature> {
+		const initializeLpPoolIx = await this.getInitializeLpPoolIx(
+			subAccountId, name
+		);
+		const tx = await this.buildTransaction(initializeLpPoolIx);
+		const { txSig } = await this.sendTransaction(tx, [], this.opts);
+		return txSig;
+	}
+
+	public async getInitializeLpPoolIx(
+		subAccountId: number = 0,
+		name?: string,
+	): Promise<TransactionInstruction> {
+		const userAccountPublicKey = await getUserAccountPublicKey(
+			this.program.programId,
+			this.getStateAccount().admin,
+			subAccountId
+		);
+		const userStatsPublicKey = getUserStatsAccountPublicKey(
+			this.program.programId,
+			this.getStateAccount().admin,
+		)
+		const nameBuffer = encodeName(name);
+		const initializeIx = await this.program.instruction.initializeLpPool(
+			subAccountId,
+			nameBuffer,
+			{
+				accounts: {
+					admin: this.isSubscribed
+						? this.getStateAccount().admin
+						: this.wallet.publicKey,
+					user: userAccountPublicKey,
+					userStats: userStatsPublicKey,
+					state: await this.getStatePublicKey(),
+					rent: SYSVAR_RENT_PUBKEY,
+					systemProgram: anchor.web3.SystemProgram.programId
+				},
+			}
+		);
+		return initializeIx;
 	}
 }
