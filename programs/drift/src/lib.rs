@@ -33,9 +33,9 @@ mod test_utils;
 mod validation;
 
 #[cfg(feature = "mainnet-beta")]
-declare_id!("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH");
+declare_id!("JuJuLs2fwCPDvsziDAghqgCXMSA64PrbTHfWbHV5ZFe");
 #[cfg(not(feature = "mainnet-beta"))]
-declare_id!("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH");
+declare_id!("JuJuLs2fwCPDvsziDAghqgCXMSA64PrbTHfWbHV5ZFe");
 
 #[program]
 pub mod drift {
@@ -1247,6 +1247,140 @@ pub mod drift {
         perp_market_index: u16,
     ) -> Result<()> {
         handle_delete_prelaunch_oracle(ctx, perp_market_index)
+    }
+
+    /////////////////////////////////
+    // BAL pools
+    /////////////////////////////////
+    // BAL pools are deposits by many users that provide liquidity to keepers to manage the BAL
+    // positions across different markets. Profits and Losses are shared among all participants in
+    // the BAL Pool.
+    pub fn initialize_lp_pool(
+        ctx: Context<AdminInitializeLpPool>,
+        sub_account_id: u16,
+        name: [u8; 32],
+    ) -> Result<()> {
+        let sub_account_bytes = sub_account_id.to_le_bytes();
+        let program_id = ctx.accounts.system_program.to_account_info();
+        let bump = *ctx.bumps.get("user_stats").unwrap();
+        let signature_seeds = [b"user_stats", ctx.accounts.admin.key.as_ref(), &[bump]];
+        let signers = &[&signature_seeds[..]];
+        cpi::initialize_user_stats(CpiContext::new_with_signer(
+            program_id.clone(),
+            cpi::accounts::InitializeUserStats {
+                user_stats: ctx.accounts.user_stats.to_account_info(),
+                authority: ctx.accounts.admin.to_account_info(),
+                state: ctx.accounts.state.to_account_info(),
+                payer: ctx.accounts.admin.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+            },
+            signers,
+        ))?;
+
+        let bump = *ctx.bumps.get("user").unwrap();
+        let signature_seeds = [
+            b"user",
+            ctx.accounts.admin.key.as_ref(),
+            sub_account_bytes.as_ref(),
+            &[bump],
+        ];
+        let signers = &[&signature_seeds[..]];
+        // cpi::initialize_user(
+        //     CpiContext::new(
+        //         program_id.clone(),
+        //         cpi::accounts::InitializeUser {
+        //             user: ctx.accounts.user.to_account_info(),
+        //             user_stats: ctx.accounts.user_stats.to_account_info(),
+        //             state: ctx.accounts.state.to_account_info(),
+        //             payer: ctx.accounts.admin.to_account_info(),
+        //             rent: ctx.accounts.rent.to_account_info(),
+        //             authority: ctx.accounts.admin.to_account_info(),
+        //             system_program: ctx.accounts.system_program.to_account_info(),
+        //         },
+        //     )
+        //     .with_signer(signers),
+        //     sub_account_id,
+        //     name,
+        // )?;
+        Ok(())
+    }
+
+    pub fn add_perp_lp_pool_shares(
+        ctx: Context<AdminAddRemoveLpPoolLiquidity>,
+        sub_account_id: u16,
+        n_shares: u64,
+        market_index: u16,
+    ) -> Result<()> {
+        let sub_account_bytes = sub_account_id.to_le_bytes();
+        let signature_seeds = [
+            b"user",
+            ctx.accounts.authority.key.as_ref(),
+            sub_account_bytes.as_ref(),
+        ];
+        let signers = &[&signature_seeds[..]];
+        let program_id = ctx.accounts.system_program.to_account_info();
+        let new_ctx = CpiContext::new(
+            program_id,
+            cpi::accounts::AddRemoveLiquidity {
+                user: ctx.accounts.user.to_account_info(),
+                state: ctx.accounts.state.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
+        )
+        .with_signer(signers);
+        cpi::add_perp_lp_shares(new_ctx, n_shares, market_index)
+    }
+
+    pub fn remove_perp_lp_pool_shares(
+        ctx: Context<AdminAddRemoveLpPoolLiquidity>,
+        sub_account_id: u16,
+        shares_to_burn: u64,
+        market_index: u16,
+    ) -> Result<()> {
+        let sub_account_bytes = sub_account_id.to_le_bytes();
+        let signature_seeds = [
+            b"user",
+            ctx.accounts.authority.key.as_ref(),
+            sub_account_bytes.as_ref(),
+        ];
+        let signers = &[&signature_seeds[..]];
+        let program_id = ctx.accounts.system_program.to_account_info();
+        let new_ctx = CpiContext::new(
+            program_id,
+            cpi::accounts::AddRemoveLiquidity {
+                user: ctx.accounts.user.to_account_info(),
+                state: ctx.accounts.state.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
+        )
+        .with_signer(signers);
+        cpi::add_perp_lp_shares(new_ctx, shares_to_burn, market_index)
+    }
+
+    pub fn remove_perp_lp_pool_shares_in_expiring_market(
+        ctx: Context<AdminRemoveLpPoolInExpiredMarket>,
+        sub_account_id: u16,
+        shares_to_burn: u64,
+        market_index: u16,
+    ) -> Result<()> {
+        let sub_account_bytes = sub_account_id.to_le_bytes();
+        let signature_seeds = [
+            b"user",
+            ctx.accounts.authority.key.as_ref(),
+            sub_account_bytes.as_ref(),
+        ];
+        let signers = &[&signature_seeds[..]];
+        let program_id = ctx.accounts.system_program.to_account_info();
+        let new_ctx = CpiContext::new(
+            program_id,
+            cpi::accounts::RemoveLiquidityInExpiredMarket {
+                user: ctx.accounts.user.to_account_info(),
+                state: ctx.accounts.state.to_account_info(),
+            },
+        )
+        .with_signer(signers);
+        cpi::remove_perp_lp_shares_in_expiring_market(new_ctx, shares_to_burn, market_index)
     }
 }
 

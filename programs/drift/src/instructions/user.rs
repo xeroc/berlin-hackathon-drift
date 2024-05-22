@@ -2027,6 +2027,7 @@ pub struct InitializeUserStats<'info> {
         seeds = [b"user_stats", authority.key.as_ref()],
         space = UserStats::SIZE,
         bump,
+        owner = payer.key(),
         payer = payer
     )]
     pub user_stats: AccountLoader<'info, UserStats>,

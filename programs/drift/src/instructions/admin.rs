@@ -47,6 +47,7 @@ use crate::state::spot_market::{
 };
 use crate::state::state::{ExchangeStatus, FeeStructure, OracleGuardRails, State};
 use crate::state::traits::Size;
+use crate::state::user::User;
 use crate::state::user::UserStats;
 use crate::validate;
 use crate::validation::fee_structure::validate_fee_structure;
@@ -57,6 +58,8 @@ use crate::{controller, QUOTE_PRECISION_I64};
 use crate::{get_then_update_id, EPOCH_DURATION};
 use crate::{load, FEE_ADJUSTMENT_MAX};
 use crate::{math, safe_decrement, safe_increment};
+
+use crate::ids::drift_program::LP_POOL_ADMIN_PUBKEY;
 
 pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
     let (drift_signer, drift_signer_nonce) =
@@ -3157,4 +3160,69 @@ pub struct DeletePrelaunchOracle<'info> {
         has_one = admin
     )]
     pub state: Box<Account<'info, State>>,
+}
+
+#[derive(Accounts)]
+#[instruction(
+    sub_account_id: u16,
+)]
+pub struct AdminInitializeLpPool<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    // The state we need to access to figure out the drift_signer == state.signer
+    #[account(
+        mut,
+        has_one = admin
+    )]
+    pub state: Box<Account<'info, State>>,
+
+    // The user representing the sub-account, based on drift_signer
+    #[account(
+        init,
+        seeds = [b"user", admin.key.as_ref(), sub_account_id.to_le_bytes().as_ref()],
+        space = User::SIZE,
+        bump,
+        payer = admin
+    )]
+    pub user: AccountLoader<'info, User>,
+
+    // https://github.com/coral-xyz/anchor/issues/1551
+    /// CHECK:
+    pub user_stats: UncheckedAccount<'info>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct AdminAddRemoveLpPoolLiquidity<'info> {
+    #[account(
+        mut,
+        address = LP_POOL_ADMIN_PUBKEY
+    )]
+    pub admin: Signer<'info>,
+    #[account(mut)]
+    pub state: Box<Account<'info, State>>,
+    #[account(
+        mut,
+        constraint = can_sign_for_user(&user, &authority)?,
+    )]
+    pub user: AccountLoader<'info, User>,
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct AdminRemoveLpPoolInExpiredMarket<'info> {
+    #[account(
+        mut,
+        address = LP_POOL_ADMIN_PUBKEY
+    )]
+    pub admin: Signer<'info>,
+    #[account(mut)]
+    pub state: Box<Account<'info, State>>,
+    #[account(mut)]
+    pub user: AccountLoader<'info, User>,
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }

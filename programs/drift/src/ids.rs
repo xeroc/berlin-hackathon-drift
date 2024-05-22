@@ -1,3 +1,9 @@
+pub mod drift_program {
+    use solana_program::pubkey;
+    use solana_program::pubkey::Pubkey;
+    pub const LP_POOL_ADMIN_PUBKEY: Pubkey =
+        pubkey!("4j9iNoHBY34rksAwJmHHCooRbAVxo2vajCHQWKo3Hwii");
+}
 pub mod pyth_program {
     use solana_program::declare_id;
     #[cfg(feature = "mainnet-beta")]
